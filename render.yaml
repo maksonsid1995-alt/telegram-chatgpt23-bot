@@ -2,14 +2,12 @@ services:
   - type: web
     name: telegram-chatgpt23-bot
     env: python
-    branch: main
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    plan: free
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
     envVars:
       - key: BOT_TOKEN
-        fromDatabase: false
-        value: "<твoй_BOT_TOKEN>"
+        value: "<тут_твой_бот_токен>"
       - key: OPENAI_API_KEY
-        fromDatabase: false
-        value: "<твoй_OPENAI_API_KEY>"
-    plan: free
+        value: "<тут_твой_openai_api_key>"
