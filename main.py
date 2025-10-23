@@ -1,8 +1,7 @@
 import os
 import logging
 import asyncio
-from aiogram import Bot, Dispatcher, F, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram import Bot, Dispatcher, types
 from aiohttp import web
 import openai
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 # ======== ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-PORT = int(os.getenv("PORT", 10000))
+PORT = int(os.environ.get("PORT", 10000))  # Render задаёт свой порт через $PORT
 
 if not BOT_TOKEN or not OPENAI_API_KEY:
     raise ValueError("Не заданы BOT_TOKEN или OPENAI_API_KEY в Environment Variables")
@@ -41,25 +40,7 @@ def get_openai_response(prompt: str):
     )
     return response.choices[0].message["content"]
 
-# ======== КНОПКИ ========
-start_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="Старт")]
-    ],
-    resize_keyboard=True
-)
-
-# ======== ХЕНДЛЕРЫ ========
-@dp.message(F.text == "Старт")
-async def start_command(message: types.Message):
-    user_name = message.from_user.full_name
-    greeting = (
-        f"Привет, {user_name}! 👋\n\n"
-        "Я бот с ChatGPT. Можешь писать мне любые вопросы, "
-        "и я постараюсь дать развёрнутый ответ. 😊"
-    )
-    await message.answer(greeting)
-
+# ======== ОБРАБОТКА СООБЩЕНИЙ ========
 @dp.message()
 async def chatgpt_reply(message: types.Message):
     try:
@@ -70,33 +51,47 @@ async def chatgpt_reply(message: types.Message):
         await message.answer("Ошибка при обработке запроса. Попробуйте позже.")
         logger.error(f"OpenAI error: {e}")
 
-# ======== WEBHOOK ========
-async def on_startup():
+# ======== ПРИВЕТСТВИЕ С КНОПКОЙ ========
+@dp.message(commands=["start"])
+async def welcome(message: types.Message):
+    user_name = message.from_user.full_name
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(types.KeyboardButton(text="💬 Задать вопрос"))
+    greeting = (
+        f"Привет, {user_name}! 👋\n\n"
+        "Я бот с ChatGPT. Нажми кнопку ниже, чтобы задать вопрос."
+    )
+    await message.answer(greeting, reply_markup=keyboard)
+
+# ======== ВЕБ-СЕРВЕР ========
+async def handle_webhook(request: web.Request):
+    """Обработка входящих обновлений Telegram через webhook."""
+    try:
+        data = await request.json()
+        update = types.Update(**data)
+        await dp.process_update(update)
+        return web.Response(status=200)
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return web.Response(status=500)
+
+async def on_startup(app):
+    """Удаляем старый webhook и ставим новый."""
     await bot.delete_webhook(drop_pending_updates=True)
     await bot.set_webhook(WEBHOOK_URL)
     logger.info(f"Webhook установлен на {WEBHOOK_URL}")
 
-async def on_shutdown():
+async def on_shutdown(app):
+    """Очистка webhook при выключении."""
     await bot.delete_webhook()
     logger.info("Webhook удалён при shutdown")
 
-async def handle_webhook(request: web.Request):
-    update = types.Update(**await request.json())
-    await dp.process_update(update)
-    return web.Response(status=200)
-
-async def main():
-    await on_startup()
-    app = web.Application()
-    app.router.add_post(WEBHOOK_PATH, handle_webhook)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    logger.info(f"Сервер слушает порт {PORT}")
-    await site.start()
-    # Бесконечный цикл
-    while True:
-        await asyncio.sleep(3600)
+# ======== MAIN ========
+app = web.Application()
+app.router.add_post(WEBHOOK_PATH, handle_webhook)
+app.on_startup.append(on_startup)
+app.on_cleanup.append(on_shutdown)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    logger.info(f"Сервер слушает порт {PORT}")
+    web.run_app(app, host="0.0.0.0", port=PORT)
