@@ -3,11 +3,5 @@ services:
     name: telegram-chatgpt23-bot
     env: python
     plan: free
-    region: oregon
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main.py"
-    envVars:
-      - key: BOT_TOKEN
-        value: "<тут_твой_бот_токен>"
-      - key: OPENAI_API_KEY
-        value: "<тут_твой_openai_api_key>"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
