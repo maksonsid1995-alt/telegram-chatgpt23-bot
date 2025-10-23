@@ -1,16 +1,14 @@
 services:
   - type: web
     name: telegram-chatgpt-bot
-    env: docker
-    dockerfilePath: ./Dockerfile
-    branch: main
-    autoDeploy: true
-    plan: starter
-    healthCheckPath: /
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
     envVars:
-      - key: TELEGRAM_TOKEN
+      - key: BOT_TOKEN
         fromDatabase: false
-        value: "ВАШ_ТОКЕН"
       - key: OPENAI_API_KEY
         fromDatabase: false
-        value: "ВАШ_ТОКЕН"
+    autoDeploy: true
