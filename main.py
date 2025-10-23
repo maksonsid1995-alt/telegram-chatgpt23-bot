@@ -4,15 +4,21 @@ import openai
 from aiogram import Bot, Dispatcher, types
 from aiohttp import web
 
+# ======== ПЕРЕМЕННЫЕ ========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL = f"https://<your-render-service>.onrender.com{WEBHOOK_PATH}"
+PORT = int(os.environ.get("PORT", 10000))
 
+# URL твоего Render-сервиса
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://telegram-chatgpt23-bot.onrender.com{WEBHOOK_PATH}"
+
+# ======== ИНИЦИАЛИЗАЦИЯ ========
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 openai.api_key = OPENAI_API_KEY
 
+# ======== ОБРАБОТКА СООБЩЕНИЙ ========
 @dp.message()
 async def chatgpt_reply(message: types.Message):
     response = openai.ChatCompletion.create(
@@ -21,24 +27,27 @@ async def chatgpt_reply(message: types.Message):
     )
     await message.answer(response.choices[0].message["content"])
 
+# ======== HANDLER ДЛЯ WEBHOOK ========
 async def handle(request):
     update = types.Update(**await request.json())
     await dp.feed_update(update)
     return web.Response()
 
+# ======== СТАРТ СЕРВЕРА ========
 async def main():
-    # Устанавливаем webhook
+    # Сбрасываем старые webhook
     await bot.delete_webhook(drop_pending_updates=True)
     await bot.set_webhook(WEBHOOK_URL)
 
+    # Запускаем веб-сервер
     app = web.Application()
     app.router.add_post(WEBHOOK_PATH, handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
-    print("Bot started")
+    print(f"Bot started at {WEBHOOK_URL}")
     while True:
         await asyncio.sleep(3600)  # держим сервер живым
 
