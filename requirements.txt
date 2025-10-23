@@ -7,3 +7,10 @@ pydantic==2.11.10
 typing-extensions==4.7.1
 magic-filter==1.0.12
 certifi>=2023.7.22
+yarl==1.8.2
+multidict==6.0.4
+attrs==23.1.0
+frozenlist==1.4.0
+async-timeout==4.0.3
+aiosignal==1.4.0
+charset-normalizer==3.4.4
