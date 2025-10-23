@@ -1,3 +1,4 @@
-aiogram
-aiohttp
+aiogram==3.0.0b7
 openai
+aiohttp
+tenacity
