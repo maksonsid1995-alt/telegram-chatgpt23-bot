@@ -1,4 +1,4 @@
-aiogram==3.0.12
-openai
+aiogram==3.0.0
 aiohttp>=3.8.6
+openai
 tenacity
