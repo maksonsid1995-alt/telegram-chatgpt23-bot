@@ -33,8 +33,7 @@ async def get_openai_response(prompt: str):
     return resp.choices[0].message["content"]
 
 # ======== Обработчики ========
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
+async def start_handler(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="💬 Задать вопрос")]],
         resize_keyboard=True
@@ -44,8 +43,7 @@ async def cmd_start(message: types.Message):
         reply_markup=keyboard
     )
 
-@dp.message()
-async def chat_reply(message: types.Message):
+async def message_handler(message: types.Message):
     try:
         response = await get_openai_response(message.text)
         for chunk in split_message(response):
@@ -53,6 +51,10 @@ async def chat_reply(message: types.Message):
     except Exception as e:
         logger.exception(e)
         await message.answer("Ошибка при обработке запроса. Попробуйте позже.")
+
+# ======== Регистрируем фильтры ========
+dp.message.register(start_handler, Command(commands=["start"]))
+dp.message.register(message_handler)
 
 # ======== Webhook сервер ========
 async def handle(request):
