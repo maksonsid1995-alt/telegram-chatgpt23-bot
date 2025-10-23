@@ -1,6 +1,6 @@
 aiogram==3.13.0
+aiofiles==23.2.1
 aiohttp==3.8.6
-aiofiles==23.1.0
 openai==2.6.0
 tenacity==9.1.2
 pydantic==2.11.10
