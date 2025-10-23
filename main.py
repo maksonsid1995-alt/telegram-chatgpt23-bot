@@ -19,8 +19,8 @@ async def chatgpt_reply(message: types.Message):
     await message.answer(response.choices[0].message["content"])
 
 async def main():
-    dp.include_router(dp)
     await bot.delete_webhook(drop_pending_updates=True)
+    # Просто стартуем polling на диспетчере
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
