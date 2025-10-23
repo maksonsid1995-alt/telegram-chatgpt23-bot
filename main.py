@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import openai
@@ -66,6 +67,10 @@ async def chatgpt_reply(message: types.Message):
         await message.answer("Ошибка при обработке запроса. Попробуйте позже.")
         logger.error(f"OpenAI error: {e}")
 
+# ===== ROOT ОБРАБОТЧИК =====
+async def root_handler(request):
+    return web.Response(text="🤖 Telegram ChatGPT бот работает! Отправьте /start в Telegram.", content_type="text/plain")
+
 # ===== WEBHOOK =====
 async def on_startup():
     await bot.delete_webhook(drop_pending_updates=True)
@@ -77,6 +82,10 @@ async def on_shutdown():
     logger.info("Webhook удалён при shutdown")
 
 async def main():
+    # Создаём веб-приложение aiohttp
+    app = web.Application()
+    app.router.add_get("/", root_handler)
+
     await on_startup()
     await dp.start_webhook(
         webhook_path=WEBHOOK_PATH,
@@ -85,6 +94,12 @@ async def main():
         bot=bot,
         on_shutdown=on_shutdown
     )
+    # Запуск aiohttp сервера
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
+    await site.start()
+    logger.info(f"Сервер слушает порт {PORT}")
 
 if __name__ == "__main__":
     asyncio.run(main())
