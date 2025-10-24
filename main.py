@@ -4,39 +4,34 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 import openai
-import asyncio
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ======== Переменные окружения ========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.environ.get("PORT", 10000))
 
 if not BOT_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Не заданы BOT_TOKEN или OPENAI_API_KEY в Environment Variables")
+    raise ValueError("Не заданы BOT_TOKEN или OPENAI_API_KEY")
 
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-chatgpt23-bot.onrender.com{WEBHOOK_PATH}"
 
-# ======== Инициализация бота и openai ========
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 openai.api_key = OPENAI_API_KEY
 
 # ======== Функции ========
 def split_message(text: str, limit: int = 4000):
-    """Разделяем длинные ответы на части для Telegram."""
     return [text[i:i+limit] for i in range(0, len(text), limit)]
 
 async def get_openai_response(prompt: str) -> str:
-    """Асинхронный запрос к ChatGPT через новый API."""
-    response = await openai.chat.completions.acreate(
+    resp = await openai.chat.completions.acreate(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content
+    return resp.choices[0].message.content
 
 # ======== Обработчики ========
 async def start_handler(message: types.Message):
@@ -45,8 +40,7 @@ async def start_handler(message: types.Message):
         resize_keyboard=True
     )
     await message.answer(
-        f"Привет, {message.from_user.full_name}! 👋\n"
-        "Напиши мне вопрос, и я дам ответ.",
+        f"Привет, {message.from_user.full_name}! 👋\nНапиши мне вопрос, и я дам ответ.",
         reply_markup=keyboard
     )
 
@@ -59,7 +53,7 @@ async def message_handler(message: types.Message):
         logger.exception(f"Ошибка при обработке запроса: {e}")
         await message.answer("Ошибка при обработке запроса. Попробуйте позже.")
 
-# ======== Регистрация обработчиков ========
+# ======== Регистрируем обработчики ========
 dp.message.register(start_handler, Command(commands=["start"]))
 dp.message.register(message_handler)
 
@@ -69,7 +63,7 @@ async def handle(request):
         data = await request.json()
         logger.info(f"Webhook data: {data}")
         update = types.Update(**data)
-        await dp.feed_update(update)  # правильный метод в Aiogram 3.x
+        await dp.update_router.dispatch(update)  # <- именно так!
         return web.Response(text="ok")
     except Exception as e:
         logger.exception(f"Ошибка обработки запроса: {e}")
