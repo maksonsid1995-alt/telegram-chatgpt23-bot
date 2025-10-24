@@ -3,7 +3,7 @@ import logging
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-import openai
+from openai import AsyncOpenAI
 
 # ===== Логи =====
 logging.basicConfig(level=logging.INFO)
@@ -23,20 +23,22 @@ WEBHOOK_URL = f"https://telegram-chatgpt23-bot.onrender.com{WEBHOOK_PATH}"
 # ===== Инициализация бота =====
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-openai.api_key = OPENAI_API_KEY
+
+# ===== Инициализация клиента OpenAI =====
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # ===== Вспомогательные функции =====
 def split_message(text, limit=4000):
     return [text[i:i+limit] for i in range(0, len(text), limit)]
 
 async def get_openai_response(prompt: str):
-    resp = await openai.ChatCompletion.acreate(
+    response = await client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    return resp.choices[0].message["content"]
+    return response.choices[0].message.content
 
-# ===== Обработчики сообщений =====
+# ===== Обработчики =====
 async def start_handler(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="💬 Задать вопрос")]],
@@ -84,9 +86,7 @@ async def on_shutdown(app):
 
 app = web.Application()
 app.router.add_post(WEBHOOK_PATH, handle)
-# Для проверки, что сервер работает
 app.router.add_get("/", lambda request: web.Response(text="Bot is running"))
-
 app.on_startup.append(on_startup)
 app.on_cleanup.append(on_shutdown)
 
