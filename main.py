@@ -29,7 +29,7 @@ dp = Dispatcher()
 # Подключение к OpenRouter API (аналог OpenAI)
 openai_client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=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
+    api_key=os.getenv("OPENAI_API_KEY")
 )
 
 # === Утилиты ===
