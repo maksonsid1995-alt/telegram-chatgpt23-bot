@@ -3,11 +3,13 @@ import logging
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from openai import AsyncOpenAI
+import openai
+import asyncio
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("main")
+logger = logging.getLogger(__name__)
 
+# ======== Переменные окружения ========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.environ.get("PORT", 10000))
@@ -18,26 +20,25 @@ if not BOT_TOKEN or not OPENAI_API_KEY:
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-chatgpt23-bot.onrender.com{WEBHOOK_PATH}"
 
+# ======== Инициализация бота и openai ========
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+openai.api_key = OPENAI_API_KEY
 
-# ---- OpenRouter client ----
-client = AsyncOpenAI(
-    api_key=OPENAI_API_KEY,
-    base_url="https://openrouter.ai/api/v1"
-)
+# ======== Функции ========
+def split_message(text: str, limit: int = 4000):
+    """Разделяем длинные ответы на части для Telegram."""
+    return [text[i:i+limit] for i in range(0, len(text), limit)]
 
-def split_message(text, limit=4000):
-    return [text[i:i + limit] for i in range(0, len(text), limit)]
-
-async def get_openai_response(prompt: str):
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
+async def get_openai_response(prompt: str) -> str:
+    """Асинхронный запрос к ChatGPT через новый API."""
+    response = await openai.chat.completions.acreate(
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
 
-# ---- Telegram Handlers ----
+# ======== Обработчики ========
 async def start_handler(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="💬 Задать вопрос")]],
@@ -45,31 +46,30 @@ async def start_handler(message: types.Message):
     )
     await message.answer(
         f"Привет, {message.from_user.full_name}! 👋\n"
-        f"Я бот на OpenRouter. Напиши вопрос — и я отвечу.",
+        "Напиши мне вопрос, и я дам ответ.",
         reply_markup=keyboard
     )
 
 async def message_handler(message: types.Message):
     try:
-        user_text = message.text.strip()
-        logger.info(f"Получено сообщение: {user_text}")
-        response = await get_openai_response(user_text)
+        response = await get_openai_response(message.text)
         for chunk in split_message(response):
             await message.answer(chunk)
     except Exception as e:
-        logger.exception(e)
+        logger.exception(f"Ошибка при обработке запроса: {e}")
         await message.answer("Ошибка при обработке запроса. Попробуйте позже.")
 
+# ======== Регистрация обработчиков ========
 dp.message.register(start_handler, Command(commands=["start"]))
 dp.message.register(message_handler)
 
-# ---- Webhook logic ----
+# ======== Webhook сервер ========
 async def handle(request):
     try:
         data = await request.json()
         logger.info(f"Webhook data: {data}")
         update = types.Update(**data)
-        await dp.feed_update(bot, update)
+        await dp.feed_update(update)  # правильный метод в Aiogram 3.x
         return web.Response(text="ok")
     except Exception as e:
         logger.exception(f"Ошибка обработки запроса: {e}")
@@ -86,7 +86,6 @@ async def on_shutdown(app):
 
 app = web.Application()
 app.router.add_post(WEBHOOK_PATH, handle)
-app.router.add_get("/", lambda request: web.Response(text="Bot is running"))
 app.on_startup.append(on_startup)
 app.on_cleanup.append(on_shutdown)
 
