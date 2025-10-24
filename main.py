@@ -22,7 +22,6 @@ WEBHOOK_URL = f"https://telegram-chatgpt23-bot.onrender.com{WEBHOOK_PATH}"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # ====== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======
@@ -65,13 +64,13 @@ async def message_handler(message: types.Message):
     for chunk in split_message(response):
         await message.answer(chunk)
 
-# ====== ОБРАБОТКА WEBHOOK ======
+# ====== WEBHOOK ======
 async def handle(request):
     try:
         data = await request.json()
         logger.info(f"Получен webhook: {data}")
         update = types.Update(**data)
-        await dp.process_update(update)
+        await dp.feed_update(bot, update)  # <-- вот ключевое исправление
         return web.Response(text="ok")
     except Exception as e:
         logger.exception(f"Ошибка обработки запроса: {e}")
