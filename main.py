@@ -5,11 +5,9 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from openai import AsyncOpenAI
 
-# ===== Логирование =====
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("main")
 
-# ===== Конфигурация =====
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.environ.get("PORT", 10000))
@@ -20,28 +18,26 @@ if not BOT_TOKEN or not OPENAI_API_KEY:
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-chatgpt23-bot.onrender.com{WEBHOOK_PATH}"
 
-# ===== Telegram =====
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ===== OpenRouter =====
+# ---- OpenRouter client ----
 client = AsyncOpenAI(
     api_key=OPENAI_API_KEY,
     base_url="https://openrouter.ai/api/v1"
 )
 
-# ===== Вспомогательные =====
 def split_message(text, limit=4000):
     return [text[i:i + limit] for i in range(0, len(text), limit)]
 
 async def get_openai_response(prompt: str):
     response = await client.chat.completions.create(
-        model="gpt-4o-mini",  # можно заменить на gpt-4o, mistralai/mistral-small и т.д.
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
 
-# ===== Обработчики =====
+# ---- Telegram Handlers ----
 async def start_handler(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="💬 Задать вопрос")]],
@@ -64,11 +60,10 @@ async def message_handler(message: types.Message):
         logger.exception(e)
         await message.answer("Ошибка при обработке запроса. Попробуйте позже.")
 
-# ===== Регистрация =====
 dp.message.register(start_handler, Command(commands=["start"]))
 dp.message.register(message_handler)
 
-# ===== Webhook =====
+# ---- Webhook logic ----
 async def handle(request):
     try:
         data = await request.json()
