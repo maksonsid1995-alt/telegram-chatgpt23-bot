@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
-# Загружаем переменные из .env
+# Загружаем переменные окружения
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -18,17 +18,17 @@ if not BOT_TOKEN or not OPENROUTER_API_KEY:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Настраиваем Telegram-бота
+# Telegram bot
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Настраиваем OpenRouter API
+# OpenRouter client (без прокси)
 client = AsyncOpenAI(
     api_key=OPENROUTER_API_KEY,
     base_url="https://openrouter.ai/api/v1"
 )
 
-# Функция для ответа через OpenRouter
+# Получение ответа от модели
 async def get_openrouter_response(prompt: str) -> str:
     try:
         response = await client.chat.completions.create(
@@ -36,7 +36,7 @@ async def get_openrouter_response(prompt: str) -> str:
             messages=[
                 {"role": "system", "content": "Ты — умный и дружелюбный Telegram-бот."},
                 {"role": "user", "content": prompt}
-            ]
+            ],
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -50,7 +50,7 @@ async def handle_message(message: types.Message):
     reply = await get_openrouter_response(message.text)
     await message.answer(reply)
 
-# Обработчик webhook
+# Webhook handler
 async def handle(request):
     try:
         data = await request.json()
@@ -62,7 +62,7 @@ async def handle(request):
         logger.exception(f"Ошибка обработки запроса: {e}")
         return web.Response(status=500, text="error")
 
-# Запуск веб-сервера
+# Настройка webhook
 async def on_startup(app):
     webhook_url = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/webhook/{BOT_TOKEN}"
     await bot.set_webhook(webhook_url)
@@ -72,6 +72,7 @@ async def on_shutdown(app):
     await bot.delete_webhook()
     await bot.session.close()
 
+# Запуск aiohttp
 app = web.Application()
 app.router.add_post(f"/webhook/{BOT_TOKEN}", handle)
 app.on_startup.append(on_startup)
